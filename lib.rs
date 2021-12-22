@@ -145,6 +145,37 @@ mod erc20 {
             self.transfer_from_to(self.env().caller(), to, value)
         }
 
+        #[ink(message)]
+        pub fn mint(&mut self, to: AccountId, value: Balance) -> bool {
+            let to_balance = self.balance_of_or_zero(&to);
+            self.balances.insert(to, to_balance + value);
+            self.env().emit_event(Transfer {
+                from: Some(AccountId::from([0x0; 32])),
+                to: Some(to),
+                value,
+            });
+
+            true
+        }
+
+        #[ink(message)]
+        pub fn burn(&mut self, from: AccountId, value: Balance) -> bool {
+            let from_balance = self.balance_of_or_zero(&from);
+            if from_balance < value {
+                return false;
+            }
+
+            self.balances.insert(from, from_balance - value);
+
+            self.env().emit_event(Transfer {
+                from: Some(from),
+                to: Some(AccountId::from([0x0; 32])),
+                value
+            });
+
+            true
+        }
+
         fn transfer_from_to(&mut self, from: AccountId, to: AccountId, value: Balance) -> bool {
             let from_balance = self.balance_of_or_zero(&from);
             if from_balance < value {
@@ -258,6 +289,22 @@ mod erc20 {
             assert_eq!(contract.name(), String::from("Hoang"));
             contract.set_metadata(String::from("VuHoang"), String::from("VUH"));
             assert_eq!(contract.name(), String::from("VuHoang"));
+        }
+
+        #[ink::test]
+        fn mint_works() {
+            let mut contract = Erc20::new(777, String::from("Hoang"), String::from("HOA"));
+            contract.mint(AccountId::from([0x3; 32]), 100);
+            assert_eq!(contract.balance_of(AccountId::from([0x3; 32])), 100);
+        }
+
+        #[ink::test]
+        fn burn_works() {
+            let mut contract = Erc20::new(777, String::from("Hoang"), String::from("HOA"));
+            contract.mint(AccountId::from([0x4; 32]), 100);
+            assert_eq!(contract.balance_of(AccountId::from([0x4; 32])), 100);
+            contract.burn(AccountId::from([0x4; 32]), 20);
+            assert_eq!(contract.balance_of(AccountId::from([0x4; 32])), 80);
         }
     }
 }
